@@ -3,6 +3,7 @@ import React from "react";
 import JSZip from "jszip";
 import { SiqXmlParser } from "../utils/siqParser";
 import type { SiqPackage } from "../types/siq";
+import type { Team } from "../types/teams";
 
 // @ts-expect-error - Presentation API types are not available yet
 const presentationRequest = new PresentationRequest("./presentation");
@@ -10,6 +11,7 @@ const presentationRequest = new PresentationRequest("./presentation");
 export default function HostPage() {
     const [connection, setConnection] = React.useState<any>(null);
     const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+    const [teams, setTeams] = React.useState<Team[]>([]);
     const [siqPackage, setSiqPackage] = React.useState<SiqPackage | null>(null);
 
     const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,34 +100,52 @@ export default function HostPage() {
             });
     }
 
-    const closeGame = () => {
-        connection.terminate();
-        setConnection(null);
-        console.log('Connection closed');
-    }
+    // const closeGame = () => {
+    //     connection.terminate();
+    //     setConnection(null);
+    //     console.log('Connection closed');
+    // }
 
-    const sendMessage = () => {
-        connection.send("Hello from the host!");
-    }
+    // const sendMessage = () => {
+    //     connection.send("Hello from the host!");
+    // }
 
     return (
         <div>
             <h1>Новая игра</h1>
 
-            <div style={{ marginBottom: '20px' }}>
-                <h3>Выберите файл:</h3>
+            <div>
+                <h3>Пак</h3>
                 <input
+                    style={{ border: '2px dashed #ccc', padding: '5px', width: '300px', borderRadius: '8px' }}
                     type="file"
                     onChange={handleFileSelect}
                     accept=".siq"
                 />
             </div>
 
-            <button onClick={processFile}>
-                Обработать файл
-            </button>
+            <div style={{ marginTop: 54 }}>
+                <h3>Команды</h3>
+                {teams.map((team) => (
+                    <TeamRow team={team} />
+                ))}
+                <input
+                    type="text"
+                    placeholder="Введите название команды"
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
+                            setTeams(prev => [...prev, { name: (e.target as HTMLInputElement).value.trim(), score: 0 }]);
+                        }
+                    }}
+                    style={{ marginBottom: '10px', width: '300px' }}
+                />
+            </div>
 
-            {siqPackage && (
+            {/* <button onClick={processFile}>
+                Обработать файл
+            </button> */}
+
+            {/* {siqPackage && (
                 <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #ccc', borderRadius: '5px' }}>
                     <h3>Информация о пакете:</h3>
                     <p><strong>Название:</strong> {siqPackage.name}</p>
@@ -150,20 +170,28 @@ export default function HostPage() {
                         ))}
                     </details>
                 </div>
-            )}
+            )} */}
 
-            <div>
-                <h3>Управление игрой:</h3>
+            <div style={{ marginTop: 54 }}>
+                {/* <h3>Управление игрой:</h3> */}
                 <button onClick={startGame}>
                     Начать
                 </button>
-                <button onClick={closeGame}>
+                {/* <button onClick={closeGame}>
                     Закрыть
                 </button>
                 <button onClick={sendMessage}>
                     Отправить сообщение
-                </button>
+                </button> */}
             </div>
         </div>
+    );
+}
+
+function TeamRow({ team }: { team: Team }) {
+    return (
+        <p>
+            {team.name}
+        </p>
     );
 }

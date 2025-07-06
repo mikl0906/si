@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React from "react";
 
 export default function PresentationPage() {
-    const [message, setMessage] = React.useState<string | null>(null);
 
     // @ts-expect-error - Presentation API types are not available yet
     navigator.presentation.receiver.connectionList.then(list => {
@@ -17,12 +15,10 @@ export default function PresentationPage() {
     function addConnection(connection: any) {
         connection.onmessage = (message: any) => {
             console.log('Received message: ' + message.data);
-            setMessage(message.data);
         };
     }
 
     return <>
-        <p>Презентация</p>
-        <p>Сообщение: {message}</p>
+        <h1>Своя игра</h1>
     </>
 }
