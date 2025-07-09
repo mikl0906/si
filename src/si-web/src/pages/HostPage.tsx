@@ -4,194 +4,144 @@ import JSZip from "jszip";
 import { SiqXmlParser } from "../utils/siqParser";
 import type { SiqPackage } from "../types/siq";
 import type { Team } from "../types/teams";
-
-// @ts-expect-error - Presentation API types are not available yet
-const presentationRequest = new PresentationRequest("./presentation");
+import type { GameState } from "../types/game";
 
 export default function HostPage() {
+    const [game, setGame] = React.useState<GameState>({ packFile: null, packContent: null, teams: [] });
     const [connection, setConnection] = React.useState<any>(null);
-    const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
-    const [teams, setTeams] = React.useState<Team[]>([]);
-    const [siqPackage, setSiqPackage] = React.useState<SiqPackage | null>(null);
 
-    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const test = () => {
+        console.log(connection);
+    };
+
+    const handlePackFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
-            setSelectedFile(file);
-            console.log('Selected file:', file.name, 'Size:', file.size, 'Type:', file.type);
-        }
-    };
-
-    const processFile = async () => {
-        if (!selectedFile) {
-            console.log('No file selected');
-            return;
-        }
-
-        try {
-            console.log('Processing .siq file');
-
-            // Read file as ArrayBuffer for zip processing
-            const arrayBuffer = await selectedFile.arrayBuffer();
-
-            // Load the zip file
+            const arrayBuffer = await file.arrayBuffer();
             const zip = await JSZip.loadAsync(arrayBuffer);
-
-            console.log('Zip contents:');
-
-            // List all files in the zip
-            const fileList: string[] = [];
-            zip.forEach((relativePath, file) => {
-                console.log(`- ${relativePath} (${file.dir ? 'directory' : 'file'})`);
-                if (!file.dir) {
-                    fileList.push(relativePath);
-                }
-            });
-
-            // Look for content.xml specifically
             const contentXmlFile = zip.file('content.xml');
             if (contentXmlFile) {
-                console.log('Found content.xml, parsing...');
-
-                // Read the XML content
                 const xmlContent = await contentXmlFile.async('text');
-                console.log('Raw XML content (first 500 chars):', xmlContent.substring(0, 500));
-
-                // Parse XML into typed object
                 const parsedPackage = SiqXmlParser.parseXml(xmlContent);
-                setSiqPackage(parsedPackage);
-
-                console.log('Parsed SIQ Package:', parsedPackage);
-                console.log(`Package name: ${parsedPackage.name}`);
-                console.log(`Authors: ${parsedPackage.info.authors.join(', ')}`);
-                console.log(`Rounds: ${parsedPackage.rounds.length}`);
-
-                // Log round details
-                parsedPackage.rounds.forEach((round, index) => {
-                    console.log(`Round ${index + 1}: ${round.name} (${round.themes.length} themes)`);
-                    round.themes.forEach((theme, themeIndex) => {
-                        console.log(`  Theme ${themeIndex + 1}: ${theme.name} (${theme.questions.length} questions)`);
-                    });
-                });
-
-            } else {
-                console.error('content.xml not found in the archive!');
-
-                // List available files for debugging
-                console.log('Available files:');
-                fileList.forEach(fileName => {
-                    console.log(`  - ${fileName}`);
-                });
+                setGame({ teams: game.teams, packFile: zip, packContent: parsedPackage });
             }
-
-        } catch (error) {
-            console.error('Error processing .siq file:', error);
         }
     };
 
-    const startGame = () => {
+    const startPresentation = () => {
+        // @ts-expect-error - Presentation API types are not available yet
+        const presentationRequest = new PresentationRequest("./presentation");
         presentationRequest.start()
             .then((connection: any) => {
                 setConnection(connection);
-                console.log('Connected to ' + connection.url + ', id: ' + connection.id);
+                console.log('Connected', connection);
             })
             .catch((error: any) => {
                 console.log(error);
             });
     }
 
-    // const closeGame = () => {
-    //     connection.terminate();
-    //     setConnection(null);
-    //     console.log('Connection closed');
-    // }
+    const closePresentation = () => {
+        if (connection) {
+            connection.terminate();
+            setConnection(null);
+            console.log('Connection closed');
+        }
+    }
 
-    // const sendMessage = () => {
-    //     connection.send("Hello from the host!");
-    // }
+    const startGame = () => { }
 
     return (
         <div>
-            <h1>Новая игра</h1>
+            <h1 style={{ textAlign: "center" }}>Новая игра</h1>
 
-            <div>
-                <h3>Пак</h3>
-                <input
-                    style={{ border: '2px dashed #ccc', padding: '5px', width: '300px', borderRadius: '8px' }}
-                    type="file"
-                    onChange={handleFileSelect}
-                    accept=".siq"
-                />
-            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'flex-start' }}>
 
-            <div style={{ marginTop: 54 }}>
-                <h3>Команды</h3>
-                {teams.map((team) => (
-                    <TeamRow team={team} />
-                ))}
-                <input
-                    type="text"
-                    placeholder="Введите название команды"
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
-                            setTeams(prev => [...prev, { name: (e.target as HTMLInputElement).value.trim(), score: 0 }]);
-                        }
-                    }}
-                    style={{ marginBottom: '10px', width: '300px' }}
-                />
-            </div>
+                <div>
+                    <h3>Пак</h3>
+                    <input
+                        // style={{ border: '2px dashed #ccc', padding: '5px', width: '300px', borderRadius: '8px' }}
+                        type="file"
+                        onChange={handlePackFileSelect}
+                        accept=".siq"
+                    />
 
-            {/* <button onClick={processFile}>
-                Обработать файл
-            </button> */}
-
-            {/* {siqPackage && (
-                <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #ccc', borderRadius: '5px' }}>
-                    <h3>Информация о пакете:</h3>
-                    <p><strong>Название:</strong> {siqPackage.name}</p>
-                    <p><strong>Версия:</strong> {siqPackage.version}</p>
-                    <p><strong>Дата:</strong> {siqPackage.date}</p>
-                    <p><strong>Сложность:</strong> {siqPackage.difficulty}</p>
-                    <p><strong>Авторы:</strong> {siqPackage.info.authors.join(', ')}</p>
-                    <p><strong>Раундов:</strong> {siqPackage.rounds.length}</p>
-
-                    <details style={{ marginTop: '10px' }}>
-                        <summary>Подробности раундов</summary>
-                        {siqPackage.rounds.map((round, index) => (
-                            <div key={index} style={{ marginLeft: '20px', marginTop: '10px' }}>
-                                <h4>Раунд {index + 1}: {round.name}</h4>
-                                <p>Тем: {round.themes.length}</p>
-                                {round.themes.map((theme, themeIndex) => (
-                                    <div key={themeIndex} style={{ marginLeft: '20px' }}>
-                                        <strong>{theme.name}</strong> ({theme.questions.length} вопросов)
-                                    </div>
-                                ))}
-                            </div>
-                        ))}
-                    </details>
+                    {game.packContent && (<PackDetails pack={game.packContent} />)}
                 </div>
-            )} */}
 
-            <div style={{ marginTop: 54 }}>
-                {/* <h3>Управление игрой:</h3> */}
+                <div >
+                    <h3>Команды</h3>
+                    {game.teams.map((team, i) => (
+                        // <TeamRow team={team} key={i} />
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                            <p>
+                                {team.name}
+                            </p>
+                            <button onClick={() => setGame(prev => ({ ...prev, teams: prev.teams.filter((_, index) => index !== i) }))}>
+                                Удалить
+                            </button>
+                        </div>
+                    ))}
+                    <input
+                        type="text"
+                        placeholder="Введите название команды"
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
+                                setGame(prev => ({ ...prev, teams: [...prev.teams, { name: (e.target as HTMLInputElement).value.trim(), score: 0 }] }));
+                            }
+                        }}
+                        style={{ padding: '0.5rem', width: '300px', borderRadius: '0.5rem' }}
+                    />
+                </div>
+
+            </div>
+
+            <div style={{ marginTop: 54, textAlign: "center" }}>
+                <button onClick={test}>
+                    Test
+                </button>
+                {connection && connection.state === 'connected' ? (
+                    <button onClick={closePresentation}>
+                        Закрыть экран
+                    </button>
+                ) : (
+                    <button onClick={startPresentation}>
+                        Вывести на экран
+                    </button>
+                )}
                 <button onClick={startGame}>
                     Начать
                 </button>
-                {/* <button onClick={closeGame}>
-                    Закрыть
-                </button>
-                <button onClick={sendMessage}>
-                    Отправить сообщение
-                </button> */}
             </div>
         </div>
     );
 }
 
-function TeamRow({ team }: { team: Team }) {
+function PackDetails({ pack }: { pack: SiqPackage }) {
     return (
-        <p>
-            {team.name}
-        </p>
+        <div>
+            <h3>Информация о пакете:</h3>
+            <p><strong>Название:</strong> {pack.name}</p>
+            <p><strong>Версия:</strong> {pack.version}</p>
+            <p><strong>Дата:</strong> {pack.date}</p>
+            <p><strong>Сложность:</strong> {pack.difficulty}</p>
+            <p><strong>Авторы:</strong> {pack.info.authors.join(', ')}</p>
+            <p><strong>Раундов:</strong> {pack.rounds.length}</p>
+
+            <details>
+                <summary>Раунды</summary>
+                {pack.rounds.map((round, index) => (
+                    <div key={index} >
+                        <p>Раунд {index + 1}: {round.name}</p>
+                        <p>Тем: {round.themes.length}</p>
+                        {round.themes.map((theme, themeIndex) => (
+                            <div key={themeIndex} >
+                                <strong>{theme.name}</strong> ({theme.questions.length} вопросов)
+                            </div>
+                        ))}
+                    </div>
+                ))}
+            </details>
+        </div>
     );
 }
