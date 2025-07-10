@@ -14,11 +14,19 @@ export default function PresentationPage() {
 
     function addConnection(connection: any) {
         connection.onmessage = (message: any) => {
+            console.log(message)
             console.log('Received message: ' + message.data);
+
+            // paste the message into the container
+            const container = document.getElementById("container");
+            if (container) {
+                container.innerHTML = message.data;
+            }
+
         };
     }
 
-    return <>
-        <h1>Своя игра</h1>
-    </>
+    return <div id="container" className="flex h-screen flex-col items-center justify-center gap-6">
+        <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">Своя игра</h1>
+    </div>
 }

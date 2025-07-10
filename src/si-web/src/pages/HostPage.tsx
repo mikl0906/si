@@ -1,40 +1,24 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { Button } from "@/components/ui/button";
+import { useGame } from "@/context/GameContext";
+import type { Round } from "@/types/siq";
 import React from "react";
-import JSZip from "jszip";
-import { SiqXmlParser } from "../utils/siqParser";
-import type { SiqPackage } from "../types/siq";
-import type { Team } from "../types/teams";
-import type { GameState } from "../types/game";
 
 export default function HostPage() {
-    const [game, setGame] = React.useState<GameState>({ packFile: null, packContent: null, teams: [] });
     const [connection, setConnection] = React.useState<any>(null);
+    const { packContent } = useGame();
 
     const test = () => {
-        console.log(connection);
-    };
-
-    const handlePackFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            const arrayBuffer = await file.arrayBuffer();
-            const zip = await JSZip.loadAsync(arrayBuffer);
-            const contentXmlFile = zip.file('content.xml');
-            if (contentXmlFile) {
-                const xmlContent = await contentXmlFile.async('text');
-                const parsedPackage = SiqXmlParser.parseXml(xmlContent);
-                setGame({ teams: game.teams, packFile: zip, packContent: parsedPackage });
-            }
-        }
-    };
+        connection?.send(`${JSON.stringify(RoundComponent({ round: packContent?.rounds[0] }))}`);
+    }
 
     const startPresentation = () => {
         // @ts-expect-error - Presentation API types are not available yet
         const presentationRequest = new PresentationRequest("./presentation");
         presentationRequest.start()
-            .then((connection: any) => {
-                setConnection(connection);
-                console.log('Connected', connection);
+            .then((conn: any) => {
+                setConnection(conn);
+                console.log('Connected', conn);
             })
             .catch((error: any) => {
                 console.log(error);
@@ -49,99 +33,44 @@ export default function HostPage() {
         }
     }
 
-    const startGame = () => { }
-
     return (
-        <div>
-            <h1 style={{ textAlign: "center" }}>Новая игра</h1>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'flex-start' }}>
-
-                <div>
-                    <h3>Пак</h3>
-                    <input
-                        // style={{ border: '2px dashed #ccc', padding: '5px', width: '300px', borderRadius: '8px' }}
-                        type="file"
-                        onChange={handlePackFileSelect}
-                        accept=".siq"
-                    />
-
-                    {game.packContent && (<PackDetails pack={game.packContent} />)}
-                </div>
-
-                <div >
-                    <h3>Команды</h3>
-                    {game.teams.map((team, i) => (
-                        // <TeamRow team={team} key={i} />
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                            <p>
-                                {team.name}
-                            </p>
-                            <button onClick={() => setGame(prev => ({ ...prev, teams: prev.teams.filter((_, index) => index !== i) }))}>
-                                Удалить
-                            </button>
-                        </div>
-                    ))}
-                    <input
-                        type="text"
-                        placeholder="Введите название команды"
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
-                                setGame(prev => ({ ...prev, teams: [...prev.teams, { name: (e.target as HTMLInputElement).value.trim(), score: 0 }] }));
-                            }
-                        }}
-                        style={{ padding: '0.5rem', width: '300px', borderRadius: '0.5rem' }}
-                    />
-                </div>
-
-            </div>
-
-            <div style={{ marginTop: 54, textAlign: "center" }}>
-                <button onClick={test}>
-                    Test
-                </button>
-                {connection && connection.state === 'connected' ? (
-                    <button onClick={closePresentation}>
-                        Закрыть экран
-                    </button>
-                ) : (
-                    <button onClick={startPresentation}>
-                        Вывести на экран
-                    </button>
-                )}
-                <button onClick={startGame}>
-                    Начать
-                </button>
-            </div>
+        <div className="flex h-screen flex-col items-center justify-center gap-6">
+            <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">Хост</h1>
+            <p>{packContent?.name}</p>
+            <Button onClick={test} >
+                Test
+            </Button>
+            {!connection ? (
+                <Button onClick={startPresentation} >
+                    Начать презентацию
+                </Button>
+            ) : (
+                <Button onClick={closePresentation}>
+                    Закрыть презентацию
+                </Button>
+            )}
         </div>
     );
 }
 
-function PackDetails({ pack }: { pack: SiqPackage }) {
-    return (
-        <div>
-            <h3>Информация о пакете:</h3>
-            <p><strong>Название:</strong> {pack.name}</p>
-            <p><strong>Версия:</strong> {pack.version}</p>
-            <p><strong>Дата:</strong> {pack.date}</p>
-            <p><strong>Сложность:</strong> {pack.difficulty}</p>
-            <p><strong>Авторы:</strong> {pack.info.authors.join(', ')}</p>
-            <p><strong>Раундов:</strong> {pack.rounds.length}</p>
+function TextComponent({ text }: { text: string }) {
+    return <p className="text-center text-lg">{text}</p>;
+}
 
-            <details>
-                <summary>Раунды</summary>
-                {pack.rounds.map((round, index) => (
-                    <div key={index} >
-                        <p>Раунд {index + 1}: {round.name}</p>
-                        <p>Тем: {round.themes.length}</p>
-                        {round.themes.map((theme, themeIndex) => (
-                            <div key={themeIndex} >
-                                <strong>{theme.name}</strong> ({theme.questions.length} вопросов)
-                            </div>
+function RoundComponent({ round }: { round: Round }) {
+    return (
+        <div className="flex flex-col items-center">
+            <h2 className="text-2xl font-bold">{round.name}</h2>
+            {round.themes.map((theme, index) => (
+                <div key={index} className="p-4 border rounded-lg my-2 w-full max-w-md">
+                    <h3 className="text-xl font-semibold">{theme.name}</h3>
+                    {/* <ul className="list-disc pl-5">
+                        {question.answers.map((answer, idx) => (
+                            <li key={idx}>{answer}</li>
                         ))}
-                    </div>
-                ))}
-            </details>
+                    </ul> */}
+                </div>
+            ))}
         </div>
     );
 }
